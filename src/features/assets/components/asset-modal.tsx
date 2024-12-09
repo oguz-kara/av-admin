@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useRef } from 'react'
 import {
   Modal,
   Box,
@@ -25,6 +25,9 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import CloseIcon from '@mui/icons-material/Close'
 import { supportedTypes } from '../config/supported-types'
 import ArticleTwoToneIcon from '@mui/icons-material/ArticleTwoTone'
+import StarIcon from '@mui/icons-material/Star'
+import StarBorderIcon from '@mui/icons-material/StarBorder'
+import { Asset } from '../types'
 
 const StyledModalBox = styled(Box)(({ theme }) => ({
   position: 'absolute',
@@ -44,21 +47,22 @@ const StyledModalBox = styled(Box)(({ theme }) => ({
 function AssetModal({
   open,
   onClose,
-  assets,
   onChange,
+  selectedAssets,
+  setSelectedAssets,
 }: {
   open: boolean
   onClose: () => void
-  assets?: any[]
-  onChange?: (assets: any[]) => void
+  onChange?: (assets: Asset[]) => void
+  selectedAssets: Asset[]
+  setSelectedAssets: (assets: Asset[]) => void
 }) {
-  const [selectedAssets, setSelectedAssets] = useState<any[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const {
     data: assetsStore,
     isPending: isAssetStorePending,
     refetch,
-  } = useQuery<any>(['/assets/multiple'])
+  } = useQuery<{ items: Asset[] }>(['/assets/multiple'])
   const { mutateAsync: mutateAssets, isPending: isMutatingAssets } =
     useMutation<any>()
 
@@ -78,31 +82,50 @@ function AssetModal({
         formData.append('files', file)
       })
 
-      const resData = await mutateAssets({
+      const uploadedAssets = await mutateAssets({
         path: '/assets/upload/multiple',
-        options: {
-          parseBody: false,
-        },
+        options: { parseBody: false },
         body: formData,
       })
 
-      setSelectedAssets((prevAssets) => [...resData, ...prevAssets])
-      refetch()
+      if (uploadedAssets && Array.isArray(uploadedAssets)) {
+        const newSelectedAssets = [...uploadedAssets, ...selectedAssets]
+        setSelectedAssets(newSelectedAssets)
+        onChange?.(newSelectedAssets)
+        refetch()
+      }
     }
   }
 
-  const isAssetSelected = (assetId: number) => {
-    return selectedAssets.some((asset) => asset.id === assetId)
+  const isAssetSelected = (asset: Asset) => {
+    return selectedAssets.map((a) => a.id).includes(asset.id)
   }
 
-  const handleAssetSelect = (asset: any) => {
-    if (isAssetSelected(asset.id)) {
-      setSelectedAssets((prevAssets) =>
-        prevAssets.filter((a) => a.id !== asset.id)
-      )
-    } else {
-      setSelectedAssets((prevAssets) => [asset, ...prevAssets])
+  const handleAssetSelect = (asset: Asset) => {
+    if (selectedAssets.length === 0) {
+      const newAsset = { ...asset, featured: true }
+      setSelectedAssets([newAsset])
+      onChange?.([newAsset])
+      return
     }
+
+    const hasNoImages = !selectedAssets.some(
+      (a) => a.type === 'IMAGE' || a.featured
+    )
+
+    if (hasNoImages && asset.type === 'IMAGE') {
+      const newAsset = { ...asset, featured: true }
+      setSelectedAssets([...selectedAssets, newAsset])
+      onChange?.([...selectedAssets, newAsset])
+      return
+    }
+
+    const newSelectedAssets = isAssetSelected(asset)
+      ? selectedAssets.filter((a) => a.id !== asset.id)
+      : [asset, ...selectedAssets]
+
+    setSelectedAssets(newSelectedAssets)
+    onChange?.(newSelectedAssets)
   }
 
   const handleDeleteSelected = async () => {
@@ -116,13 +139,20 @@ function AssetModal({
     })
 
     if (Array.isArray(res)) setSelectedAssets([])
-
     refetch()
   }
 
-  useEffect(() => {
-    onChange && onChange(selectedAssets)
-  }, [selectedAssets])
+  const toggleFeaturedAsset = (asset: Asset) => {
+    setSelectedAssets(
+      selectedAssets.map((a) =>
+        a.id === asset.id ? { ...a, featured: !a.featured } : a
+      )
+    )
+  }
+
+  const getFeaturedAssetId = () => {
+    return selectedAssets.find((a) => a.featured)?.id
+  }
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -140,13 +170,13 @@ function AssetModal({
               placeholder="Dosya adına göre filtrele"
               size="small"
             />
-            {selectedAssets.length > 0 && (
+            {selectedAssets?.length > 0 && (
               <Button
                 startIcon={<DeleteIcon />}
                 color="error"
                 onClick={handleDeleteSelected}
               >
-                Seçilenleri Sil ({selectedAssets.length})
+                Seçilenleri Sil ({selectedAssets?.length})
               </Button>
             )}
             <input
@@ -183,7 +213,7 @@ function AssetModal({
             </Box>
           ) : (
             <Grid container spacing={2}>
-              {assetsStore?.items?.map((asset: any) => (
+              {assetsStore?.items?.map((asset: Asset) => (
                 <Grid
                   key={asset.id}
                   size={2}
@@ -192,28 +222,59 @@ function AssetModal({
                   }}
                 >
                   <Card>
-                    <CardActionArea onClick={() => handleAssetSelect(asset)}>
-                      {asset.type !== 'IMAGE' ? (
-                        <ArticleTwoToneIcon sx={{ fontSize: 160 }} />
-                      ) : (
-                        <CardMedia
-                          component="img"
-                          height="140"
-                          image={asset.preview}
-                          alt={`Asset ${asset.id}`}
-                        />
-                      )}
-                      {isAssetSelected(asset.id) && (
-                        <CheckCircleTwoToneIcon
+                    <Box sx={{ position: 'relative' }}>
+                      {asset.type === 'IMAGE' && (
+                        <IconButton
+                          onClick={(e) => {
+                            toggleFeaturedAsset(asset)
+                          }}
                           sx={{
                             position: 'absolute',
                             top: 8,
-                            right: 8,
-                            color: 'primary.main',
+                            left: 8,
+                            backgroundColor: 'rgba(255,255,255,0.8)',
+                            zIndex: 1,
                           }}
-                        />
+                        >
+                          {getFeaturedAssetId() === asset.id ? (
+                            <StarIcon color="primary" />
+                          ) : (
+                            <StarBorderIcon />
+                          )}
+                        </IconButton>
                       )}
-                    </CardActionArea>
+                      <CardActionArea
+                        onClick={() => handleAssetSelect(asset)}
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <CardMedia
+                          component="img"
+                          height="140"
+                          image={
+                            asset.type === 'IMAGE'
+                              ? asset.preview ??
+                                '/images/document-placeholder.png'
+                              : '/images/document-placeholder.png'
+                          }
+                          alt={`Asset ${asset.id}`}
+                        />
+                        {isAssetSelected(asset) && (
+                          <CheckCircleTwoToneIcon
+                            sx={{
+                              position: 'absolute',
+                              top: 8,
+                              right: 8,
+                              color: 'primary.main',
+                            }}
+                          />
+                        )}
+                      </CardActionArea>
+                    </Box>
                     <CardContent>
                       <Typography variant="caption" color="text.secondary">
                         {asset.originalName}

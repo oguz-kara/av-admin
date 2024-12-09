@@ -1,5 +1,9 @@
 import { ApolloClient } from '@apollo/client'
-import { GET_PRODUCTS } from '../../../graphql/queries'
+import {
+  GET_PRODUCT_BY_ID,
+  GET_PRODUCT_BY_SLUG,
+  GET_PRODUCTS,
+} from '../../../graphql/queries'
 import { CREATE_PRODUCT } from '../../../graphql/mutations'
 import type {
   CreateProductInput,
@@ -22,6 +26,26 @@ export class ProductSDK {
       query: GET_PRODUCTS,
     })
     return response.data.products
+  }
+
+  async getBySlug(slug: string) {
+    const response = await this.client.query<{
+      productBySlug: Product
+    }>({
+      query: GET_PRODUCT_BY_SLUG,
+      variables: { slug },
+    })
+    return response.data.productBySlug
+  }
+
+  async getById(id: string) {
+    const response = await this.client.query<{
+      product: Product
+    }>({
+      query: GET_PRODUCT_BY_ID,
+      variables: { id },
+    })
+    return response.data.product
   }
 
   async createProduct(input: CreateProductInput) {

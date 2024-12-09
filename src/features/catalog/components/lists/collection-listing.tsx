@@ -18,11 +18,11 @@ const columns: GridColDef[] = [
   { field: 'featuredAssetId', headerName: 'Resim', width: 50 },
   {
     field: 'name',
-    headerName: 'Ürün Adı',
+    headerName: 'Koleksiyon Adı',
     width: 250,
     renderCell: (params) => (
       <Box>
-        <Link href={`/katalog/urunler/${params.row.id}`}>
+        <Link href={`/katalog/koleksiyonlar/${params.row.id}`}>
           <Typography variant="body1" sx={{ color: 'secondary.main' }}>
             {params.row.name}
           </Typography>

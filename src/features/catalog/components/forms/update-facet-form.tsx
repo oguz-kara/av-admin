@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useMutation } from '@avc/lib/hooks/use-mutation'
 import {
   CREATE_FACET_VALUE,
@@ -27,8 +28,9 @@ import {
   Box,
   Stack,
   TextField as MuiTextField,
+  Breadcrumbs,
 } from '@mui/material'
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Controller, useForm, useFieldArray } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -40,7 +42,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import SearchIcon from '@mui/icons-material/Search'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
-import { TestPicker } from '../pickers/test-picker'
+import FormLayout from '@avc/components/layout/form-layout'
 
 const updateFacetSchema = z.object({
   name: z.string().min(1, 'Nitelik adı zorunludur'),
@@ -222,225 +224,224 @@ export default function UpdateFacetForm({
     code: facetValue.code,
   }))
 
-  useEffect(() => {
-    console.log(filteredFacetValues, facetValuesFields)
-  }, [filteredFacetValues, facetValuesFields])
+  const leftContent = (
+    <>
+      <Box sx={{ display: 'flex', gap: 2, px: 4 }}>
+        <Controller
+          name="name"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              placeholder="Nitelik adı buraya..."
+              fullWidth
+              error={!!errors.name}
+              helperText={errors.name?.message}
+            />
+          )}
+        />
+        <Controller
+          name="code"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              placeholder="Kod"
+              fullWidth
+              error={!!errors.code}
+              helperText={errors.code?.message}
+            />
+          )}
+        />
+      </Box>
+      <Box sx={{ px: 4 }}>
+        <Typography variant="h6" sx={{ mt: 4 }}>
+          Nitelik Değerleri
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
+          <TextField
+            placeholder="Nitelik değerlerinde ara..."
+            variant="outlined"
+            size="small"
+            fullWidth
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        </Box>
+        <List>
+          {filteredFacetValues.length === 0 && (
+            <ListItem sx={{ p: 0, pb: 4 }}>
+              <Typography>Bu nitelik için henüz bir değer yok</Typography>
+            </ListItem>
+          )}
+          {filteredFacetValues.map((facetValue, index) => (
+            <ListItem
+              key={facetValue.id ?? facetValue.name + index}
+              sx={{
+                p: 0,
+                pb: 4,
+              }}
+              alignItems="flex-start"
+              secondaryAction={
+                <IconButton
+                  edge="end"
+                  aria-label="delete"
+                  onClick={() => handleDeleteFacetValueClick(index)}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              }
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 2,
+                }}
+              >
+                <Controller
+                  name={`facetValues.${index}.name` as const}
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Değer Adı"
+                      fullWidth
+                      onChange={(e) => {
+                        field.onChange(e)
+                        setValue(`facetValues.${index}.isDirty`, true)
+                      }}
+                    />
+                  )}
+                />
+                <Controller
+                  name={`facetValues.${index}.code` as const}
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Değer Kodu"
+                      fullWidth
+                      onChange={(e) => {
+                        field.onChange(e)
+                        setValue(`facetValues.${index}.isDirty`, true)
+                      }}
+                    />
+                  )}
+                />
+              </Box>
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+      <Box sx={{ px: 4 }}>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+          onClick={() => setOpenDialog(true)}
+        >
+          Değer Ekle
+        </Button>
+      </Box>
+    </>
+  )
+
+  const rightContent = (
+    <Card sx={{ p: 0 }}>
+      <>
+        <CardContent sx={{ p: 0 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              p: 2,
+            }}
+          >
+            <Box>
+              <Typography variant="h6">Yayınla</Typography>
+              <Typography variant="body2">Niteliği şimdi yayınlayın</Typography>
+            </Box>
+            <Box>
+              <Controller
+                name="isPrivate"
+                control={control}
+                defaultValue={false}
+                render={({ field }) => (
+                  <Switch
+                    {...field}
+                    checked={field.value || false}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  />
+                )}
+              />
+            </Box>
+          </Box>
+        </CardContent>
+        <CardActions sx={{ p: 2 }}>
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
+            type="submit"
+            disabled={loading}
+          >
+            <Typography
+              variant="button"
+              sx={{ textTransform: 'none' }}
+              fontWeight="bold"
+            >
+              {loading
+                ? 'Güncelleniyor...'
+                : isPrivate
+                ? 'Şimdi yayınla'
+                : 'Kaydet'}
+            </Typography>
+          </Button>
+        </CardActions>
+      </>
+    </Card>
+  )
+
+  const header = (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+    >
+      <Typography sx={{ px: 4 }} variant="h5" fontWeight="bold">
+        Nitelik Detay | Güncelle
+      </Typography>
+      <Breadcrumbs sx={{ px: 4 }}>
+        <Typography color="text.primary">Katalog</Typography>
+        <Link href="/katalog/nitelikler">
+          <Typography color="text.primary">Nitelikler</Typography>
+        </Link>
+        <Typography color="textDisabled">Nitelik Detay | Güncelle</Typography>
+      </Breadcrumbs>
+    </Box>
+  )
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <Stack direction="row">
-        <Paper
-          sx={{
-            minHeight: '100vh',
-            borderRadius: 0,
-            flex: 3,
-            pb: 4,
-            borderRight: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Stack gap={4} direction="column">
-            <Box
-              sx={{
-                py: 4,
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography sx={{ px: 4 }} variant="h5" fontWeight="bold">
-                Nitelik Güncelle
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', gap: 2, px: 4 }}>
-              <Controller
-                name="name"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    placeholder="Nitelik adı buraya..."
-                    fullWidth
-                    error={!!errors.name}
-                    helperText={errors.name?.message}
-                  />
-                )}
-              />
-              <Controller
-                name="code"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    placeholder="Kod"
-                    fullWidth
-                    error={!!errors.code}
-                    helperText={errors.code?.message}
-                  />
-                )}
-              />
-            </Box>
-            <Box sx={{ px: 4 }}>
-              <Typography variant="h6" sx={{ mt: 4 }}>
-                Nitelik Değerleri
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
-                <TextField
-                  placeholder="Nitelik değerlerinde ara..."
-                  variant="outlined"
-                  size="small"
-                  fullWidth
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-              </Box>
-              <List>
-                {filteredFacetValues.length === 0 && (
-                  <ListItem sx={{ p: 0, pb: 4 }}>
-                    <Typography>Bu nitelik için henüz bir değer yok</Typography>
-                  </ListItem>
-                )}
-                {filteredFacetValues.map((facetValue, index) => (
-                  <ListItem
-                    key={facetValue.id ?? facetValue.name + index}
-                    sx={{
-                      p: 0,
-                      pb: 4,
-                    }}
-                    alignItems="flex-start"
-                    secondaryAction={
-                      <IconButton
-                        edge="end"
-                        aria-label="delete"
-                        onClick={() => handleDeleteFacetValueClick(index)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    }
-                  >
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        gap: 2,
-                      }}
-                    >
-                      <Controller
-                        name={`facetValues.${index}.name` as const}
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            label="Değer Adı"
-                            fullWidth
-                            onChange={(e) => {
-                              field.onChange(e)
-                              setValue(`facetValues.${index}.isDirty`, true)
-                            }}
-                          />
-                        )}
-                      />
-                      <Controller
-                        name={`facetValues.${index}.code` as const}
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            label="Değer Kodu"
-                            fullWidth
-                            onChange={(e) => {
-                              field.onChange(e)
-                              setValue(`facetValues.${index}.isDirty`, true)
-                            }}
-                          />
-                        )}
-                      />
-                    </Box>
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
-            <Box sx={{ px: 4 }}>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={() => setOpenDialog(true)}
-              >
-                Değer Ekle
-              </Button>
-            </Box>
-          </Stack>
-        </Paper>
-        <Box sx={{ flex: 1, p: 2 }}>
-          <Stack gap={4} direction="column">
-            <Card sx={{ p: 0 }}>
-              <>
-                <CardContent sx={{ p: 0 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                      p: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="h6">Yayınla</Typography>
-                      <Typography variant="body2">
-                        Niteliği şimdi yayınlayın
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Controller
-                        name="isPrivate"
-                        control={control}
-                        defaultValue={false}
-                        render={({ field }) => (
-                          <Switch
-                            {...field}
-                            checked={field.value || false}
-                            onChange={(e) => field.onChange(e.target.checked)}
-                          />
-                        )}
-                      />
-                    </Box>
-                  </Box>
-                </CardContent>
-                <CardActions sx={{ p: 2 }}>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    fullWidth
-                    type="submit"
-                    disabled={loading}
-                  >
-                    <Typography
-                      variant="button"
-                      sx={{ textTransform: 'none' }}
-                      fontWeight="bold"
-                    >
-                      {loading
-                        ? 'Güncelleniyor...'
-                        : isPrivate
-                        ? 'Şimdi yayınla'
-                        : 'Kaydet ve Taslak Olarak Sakla'}
-                    </Typography>
-                  </Button>
-                </CardActions>
-              </>
-            </Card>
-          </Stack>
-        </Box>
-      </Stack>
+      <FormLayout
+        title={header}
+        leftContent={leftContent}
+        rightContent={rightContent}
+      />
+
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Değer Ekle</DialogTitle>
         <DialogContent>
@@ -518,7 +519,6 @@ export default function UpdateFacetForm({
         message={successToastMessage}
         action={action}
       />
-      <TestPicker />
     </form>
   )
 }

@@ -1,0 +1,711 @@
+'use client'
+import Link from 'next/link'
+import React, { useRef, useState } from 'react'
+import {
+  useForm,
+  Controller,
+  useFieldArray,
+  FormProvider,
+} from 'react-hook-form'
+import {
+  TextField,
+  Switch,
+  Button,
+  Box,
+  FormControlLabel,
+  Typography,
+  Autocomplete,
+  Checkbox,
+  Select,
+  MenuItem,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  FormControl,
+  CardContent,
+  Card,
+  CardActions,
+  Tooltip,
+  CircularProgress,
+  Breadcrumbs,
+  FormLabel,
+} from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import CloseIcon from '@mui/icons-material/Close'
+import { Product } from '@avc/generated/graphql'
+import InfoIcon from '@mui/icons-material/Info'
+import FormLayout from '@avc/components/layout/form-layout'
+import { SEARCH_FACET_VALUES, SEARCH_PRODUCTS } from '@avc/graphql/queries'
+import { useQuery } from '@avc/lib/hooks/use-query'
+import { useMutation } from '@avc/lib/hooks/use-mutation'
+import { CREATE_COLLECTION } from '@avc/graphql/mutations'
+import { useRouter } from 'next/navigation'
+import { useSnackbar } from '@avc/context/snackbar-context'
+import { MenuButtonItalic, RichTextEditorRef } from 'mui-tiptap'
+import {
+  MenuButtonBold,
+  MenuDivider,
+  MenuSelectHeading,
+  MenuControlsContainer,
+} from 'mui-tiptap'
+import { StarterKit } from '@tiptap/starter-kit'
+import { RichTextEditor } from 'mui-tiptap'
+import AssetPickerDialog from '@avc/features/assets/components/asset-picker-dialog'
+
+interface FormValues {
+  name: string
+  slug: string
+  description: string
+  isDynamic: boolean
+  isPrivate: boolean
+  products: Product[]
+  rules: Array<{
+    id: string
+    code: string
+    args: Array<{ name: string; value: string }>
+    summary: string
+  }>
+  assets: any[]
+}
+
+interface RuleValues {
+  operator?: string
+  term?: string
+  combineWithAnd?: boolean
+  containsAny?: boolean
+  facetValueIds?: string[]
+}
+
+function CreateCollectionForm() {
+  const { snackbar } = useSnackbar()
+  const router = useRouter()
+  const [productTerm, setProductTerm] = useState('')
+  const [facetValueTerm, setFacetValueTerm] = useState('')
+  const rteRef = useRef<RichTextEditorRef>(null)
+  const formMethods = useForm<FormValues>({
+    defaultValues: {
+      name: '',
+      slug: '',
+      description: '',
+      isDynamic: false,
+      isPrivate: false,
+      products: [],
+      rules: [],
+      assets: [],
+    },
+  })
+
+  const { data: productsData, loading: isProductsLoading } = useQuery(
+    SEARCH_PRODUCTS,
+    {
+      variables: {
+        query: productTerm,
+      },
+    }
+  )
+
+  const { data: facetValuesData, loading: isFacetValuesLoading } = useQuery(
+    SEARCH_FACET_VALUES,
+    {
+      variables: {
+        query: facetValueTerm,
+      },
+    }
+  )
+
+  const [createCollection, { loading: isCreatingCollection }] =
+    useMutation(CREATE_COLLECTION)
+
+  const createCollectionMutation = async (data: any) => {
+    const input: any = {
+      name: data.name,
+      slug: data.slug,
+      description: data.description,
+      isDynamic: data.isDynamic,
+      isPrivate: data.isPrivate,
+      rules: data.rules,
+      products: data.products,
+      featuredAssetId: data.featuredAssetId,
+      documentIds: data.documentIds,
+    }
+
+    try {
+      const result = await createCollection({
+        variables: { input },
+      })
+
+      const createdCollection = result.data?.createCollection
+
+      if (createdCollection) {
+        snackbar({
+          variant: 'default',
+          message: 'Koleksiyon başarıyla oluşturuldu',
+        })
+        router.push(`/katalog/koleksiyonlar/${createdCollection.id}`)
+      }
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const products = productsData?.searchProducts.items || []
+  const facetValues = facetValuesData?.searchFacetValues.items || []
+
+  const { control, handleSubmit, watch, formState } = formMethods
+  const { errors, isDirty } = formState
+
+  const isDynamic = watch('isDynamic')
+  const isPrivate = watch('isPrivate')
+  const values = watch()
+
+  const [openRuleDialog, setOpenRuleDialog] = useState(false)
+  const [ruleType, setRuleType] = useState('')
+  const [ruleValues, setRuleValues] = useState<RuleValues>({})
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'rules',
+  })
+
+  const onSubmit = async (data: any) => {
+    const input: any = {
+      name: data.name,
+      slug: data.slug,
+      description: data.description,
+      isDynamic: data.isDynamic,
+      isPrivate: data.isPrivate,
+    }
+
+    if (data.isDynamic) {
+      // Process dynamic rules
+      input.rules = data.rules.map((rule: any) => ({
+        code: rule.code,
+        args: rule.args,
+      }))
+    } else {
+      // Process static products
+      input.productIds = data.products.map((product: any) => product.id)
+    }
+
+    input.featuredAssetId = data.assets.find((a: any) => a.featured)?.id
+    input.documentIds = data.assets
+      .filter((a: any) => a.type === 'DOCUMENT')
+      .map((a: any) => a.id)
+
+    try {
+      await createCollectionMutation(input)
+    } catch (error) {
+      console.log({ error })
+    }
+  }
+
+  const leftContent = (
+    <Box sx={{ flex: 5 }}>
+      <Box sx={{ px: 4, py: 2 }}>
+        <Controller
+          name="name"
+          control={control}
+          rules={{ required: 'Name is required' }}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              label="İsim"
+              required
+              error={!!errors.name}
+              helperText={errors.name?.message && 'İsim gerekli'}
+              fullWidth
+            />
+          )}
+        />
+      </Box>
+
+      <Box sx={{ px: 4, py: 2 }}>
+        <Controller
+          name="slug"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              label="Slug"
+              error={!!errors.slug}
+              fullWidth
+            />
+          )}
+        />
+      </Box>
+
+      <Box sx={{ px: 4, py: 2 }}>
+        <FormLabel sx={{ display: 'block' }}>Koleksiyon Açıklaması</FormLabel>
+        <Typography variant="caption" color="textSecondary">
+          Bu koleksiyon için kısa bir açıklama yazın
+        </Typography>
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => (
+            <RichTextEditor
+              ref={rteRef}
+              extensions={[StarterKit]}
+              content={field.value}
+              onUpdate={({ editor }) => {
+                field.onChange(editor.getHTML())
+              }}
+              renderControls={() => (
+                <MenuControlsContainer>
+                  <MenuSelectHeading />
+                  <MenuDivider />
+                  <MenuButtonBold />
+                  <MenuButtonItalic />
+                </MenuControlsContainer>
+              )}
+              editorProps={{
+                attributes: {
+                  style: 'height: 200px; overflow-y: auto;',
+                },
+              }}
+            />
+          )}
+        />
+      </Box>
+
+      <Box sx={{ px: 4 }}>
+        <Controller
+          name="assets"
+          control={control}
+          render={({ field }) => (
+            <AssetPickerDialog
+              selectedAssets={field.value || []}
+              onAssetsChange={field.onChange}
+            />
+          )}
+        />
+      </Box>
+    </Box>
+  )
+
+  const sideContent = (
+    <Card sx={{ p: 2, flex: 1 }}>
+      <React.Fragment>
+        <CardContent sx={{ p: 0 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              pb: 2,
+            }}
+          >
+            <Box>
+              <Typography variant="h6">Gizli</Typography>
+              <Typography variant="body2">Koleksiyonu gizli tutun</Typography>
+            </Box>
+            <Box>
+              <Controller
+                name="isPrivate"
+                control={control}
+                render={({ field }) => (
+                  <Switch
+                    {...field}
+                    checked={field.value || false}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  />
+                )}
+              />
+            </Box>
+          </Box>
+          {isDynamic ? (
+            <Box sx={{ pt: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Dinamik Kurallar
+              </Typography>
+
+              {fields.map((field, index) => (
+                <Box
+                  key={field.id}
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    border: '1px solid #ccc',
+                    borderRadius: 1,
+                    position: 'relative',
+                  }}
+                >
+                  <IconButton
+                    size="small"
+                    onClick={() => remove(index)}
+                    sx={{ position: 'absolute', top: 8, right: 8 }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                    {field.code === 'PRODUCT_NAME_FILTER'
+                      ? 'Ürün Adı Filtresi'
+                      : 'Nitelik Değeri Filtresi'}
+                  </Typography>
+                  <Typography variant="body2">{field.summary}</Typography>
+                </Box>
+              ))}
+
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setRuleType('')
+                  setRuleValues({})
+                  setOpenRuleDialog(true)
+                }}
+              >
+                Kural Ekle
+              </Button>
+
+              <Dialog
+                open={openRuleDialog}
+                onClose={() => setOpenRuleDialog(false)}
+                maxWidth="sm"
+                fullWidth
+              >
+                <DialogTitle>Kural Ekle</DialogTitle>
+                <DialogContent>
+                  <FormControl fullWidth sx={{ mb: 2 }}>
+                    <Select
+                      value={ruleType}
+                      onChange={(e) => setRuleType(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="" disabled>
+                        Kural Tipi Seçin
+                      </MenuItem>
+                      <MenuItem value="PRODUCT_NAME_FILTER">
+                        Ürün Adı Filtresi
+                      </MenuItem>
+                      <MenuItem value="FACET_VALUE_FILTER">
+                        Nitelik Değeri Filtresi
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {ruleType === 'PRODUCT_NAME_FILTER' && (
+                    <>
+                      <FormControl fullWidth sx={{ mb: 2 }}>
+                        <Select
+                          value={ruleValues.operator || 'contains'}
+                          onChange={(e) =>
+                            setRuleValues({
+                              ...ruleValues,
+                              operator: e.target.value,
+                            })
+                          }
+                        >
+                          <MenuItem value="contains">İçerir</MenuItem>
+                          <MenuItem value="startsWith">İle Başlar</MenuItem>
+                          <MenuItem value="endsWith">İle Biter</MenuItem>
+                          <MenuItem value="equals">Eşittir</MenuItem>
+                        </Select>
+                        <Typography variant="caption">
+                          Operatör, ürün adlarının nasıl eşleştirileceğini
+                          belirler.
+                        </Typography>
+                      </FormControl>
+
+                      <TextField
+                        label="Terim"
+                        fullWidth
+                        sx={{ mb: 2 }}
+                        value={ruleValues.term || ''}
+                        onChange={(e) =>
+                          setRuleValues({
+                            ...ruleValues,
+                            term: e.target.value,
+                          })
+                        }
+                      />
+
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={ruleValues.combineWithAnd || false}
+                            onChange={(e) =>
+                              setRuleValues({
+                                ...ruleValues,
+                                combineWithAnd: e.target.checked,
+                              })
+                            }
+                          />
+                        }
+                        label="VE ile Birleştir"
+                      />
+                    </>
+                  )}
+
+                  {ruleType === 'FACET_VALUE_FILTER' && (
+                    <>
+                      <Autocomplete
+                        onInputChange={(_, value) => setFacetValueTerm(value)}
+                        inputValue={facetValueTerm}
+                        loading={isFacetValuesLoading}
+                        loadingText="Nitelik Değerleri yükleniyor..."
+                        multiple
+                        options={facetValues || []}
+                        getOptionLabel={(option: any) => option.name}
+                        onChange={(event, newValue) =>
+                          setRuleValues({
+                            ...ruleValues,
+                            facetValueIds: newValue.map((item: any) => item.id),
+                          })
+                        }
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Nitelik Değerleri"
+                            placeholder="Nitelik Değerleri Seçin"
+                            sx={{ mb: 2 }}
+                          />
+                        )}
+                      />
+                      <Typography variant="caption" sx={{ mb: 2 }}>
+                        Nitelik değerleri, ürünleri belirli niteliklere göre
+                        daraltır.
+                      </Typography>
+
+                      <br />
+                      <br />
+
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Tooltip title="Bu seçeneği etkinleştirdiğinizde, ürünler seçilen nitelik değerlerinden en az birine sahipse koleksiyona dahil edilir.">
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={ruleValues.containsAny || false}
+                                onChange={(e) =>
+                                  setRuleValues({
+                                    ...ruleValues,
+                                    containsAny: e.target.checked,
+                                  })
+                                }
+                              />
+                            }
+                            label={
+                              <Typography variant="caption">
+                                En Az Bir Eşleşen Özelliği Dahil Et
+                                <IconButton size="small">
+                                  <InfoIcon fontSize="small" />
+                                </IconButton>
+                              </Typography>
+                            }
+                          />
+                        </Tooltip>
+                      </Box>
+
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Tooltip title="Bu seçeneği etkinleştirdiğinizde, bu kural diğer kurallarla 'VE' mantığıyla birleştirilir. Yani, ürünün koleksiyona dahil edilmesi için bu kuralın yanı sıra diğer kuralların da karşılanması gerekir.">
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={ruleValues.combineWithAnd || false}
+                                onChange={(e) =>
+                                  setRuleValues({
+                                    ...ruleValues,
+                                    combineWithAnd: e.target.checked,
+                                  })
+                                }
+                              />
+                            }
+                            label={
+                              <Typography variant="caption">
+                                Diğer Kurallarla Birlikte Uygula
+                                <IconButton size="small">
+                                  <InfoIcon fontSize="small" />
+                                </IconButton>
+                              </Typography>
+                            }
+                          />
+                        </Tooltip>
+                      </Box>
+                    </>
+                  )}
+                </DialogContent>
+                <DialogActions sx={{ p: 3 }}>
+                  <Button onClick={() => setOpenRuleDialog(false)}>
+                    İptal
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      let newRule: any = {
+                        code: ruleType,
+                        args: [],
+                        summary: '',
+                      }
+
+                      if (ruleType === 'PRODUCT_NAME_FILTER') {
+                        newRule.args = [
+                          {
+                            name: 'operator',
+                            value: ruleValues.operator || 'contains',
+                          },
+                          {
+                            name: 'term',
+                            value: ruleValues.term || '',
+                          },
+                          {
+                            name: 'combineWithAnd',
+                            value: ruleValues.combineWithAnd ? 'true' : 'false',
+                          },
+                        ]
+                        newRule.summary = `İsim ${
+                          ruleValues.operator || 'içerir'
+                        }: ${ruleValues.term || ''}`
+                      } else if (ruleType === 'FACET_VALUE_FILTER') {
+                        newRule.args = [
+                          {
+                            name: 'facetValueIds',
+                            value: JSON.stringify(
+                              ruleValues.facetValueIds || []
+                            ),
+                          },
+                          {
+                            name: 'containsAny',
+                            value: ruleValues.containsAny ? 'true' : 'false',
+                          },
+                          {
+                            name: 'combineWithAnd',
+                            value: ruleValues.combineWithAnd ? 'true' : 'false',
+                          },
+                        ]
+                        newRule.summary = `Nitelik Değerleri: ${
+                          (ruleValues.facetValueIds || []).length
+                        } seçildi`
+                      }
+
+                      append(newRule)
+                      setOpenRuleDialog(false)
+                    }}
+                    variant="contained"
+                    disabled={!ruleType}
+                  >
+                    Kural Ekle
+                  </Button>
+                </DialogActions>
+              </Dialog>
+            </Box>
+          ) : (
+            // Static Collection Configuration
+            <Box sx={{ my: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Ürünleri Seç
+              </Typography>
+              <Controller
+                name="products"
+                control={control}
+                render={({ field }) => (
+                  <Autocomplete
+                    {...field}
+                    disableCloseOnSelect={true}
+                    getOptionDisabled={(option: any) =>
+                      values.products.some((p: any) => p.id === option.id)
+                    }
+                    onInputChange={(_, value) => setProductTerm(value)}
+                    inputValue={productTerm}
+                    loading={isProductsLoading}
+                    loadingText="Ürünler yükleniyor..."
+                    multiple
+                    options={products || []}
+                    getOptionLabel={(option: any) => option.name}
+                    onChange={(_, data) => field.onChange(data)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Ürünler"
+                        placeholder="Ürünleri Seçin"
+                      />
+                    )}
+                  />
+                )}
+              />
+            </Box>
+          )}
+
+          <Box sx={{ py: 2 }}>
+            <FormControlLabel
+              control={
+                <Controller
+                  name="isDynamic"
+                  control={control}
+                  render={({ field }) => (
+                    <Switch
+                      {...field}
+                      checked={field.value}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                    />
+                  )}
+                />
+              }
+              label="Dinamik mi?"
+            />
+          </Box>
+        </CardContent>
+        <CardActions sx={{ p: 0 }}>
+          <Button
+            disabled={!isDirty}
+            variant="contained"
+            size="large"
+            fullWidth
+            type="submit"
+            startIcon={
+              isCreatingCollection ? <CircularProgress size={20} /> : null
+            }
+          >
+            <Typography
+              variant="button"
+              sx={{ textTransform: 'none' }}
+              fontWeight="bold"
+            >
+              {isCreatingCollection
+                ? 'Kaydediliyor...'
+                : isPrivate
+                ? 'Gizli koleksiyon oluştur'
+                : 'Koleksiyon oluştur'}
+            </Typography>
+          </Button>
+        </CardActions>
+      </React.Fragment>
+    </Card>
+  )
+
+  const header = (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+    >
+      <Typography sx={{ px: 4 }} variant="h5" fontWeight="bold">
+        Koleksiyon Oluştur
+      </Typography>
+      <Breadcrumbs sx={{ px: 4 }}>
+        <Typography color="text.primary">Katalog</Typography>
+        <Link href="/katalog/koleksiyonlar">
+          <Typography color="text.primary">Koleksiyonlar</Typography>
+        </Link>
+        <Typography color="textDisabled">Yeni Koleksiyon Oluştur</Typography>
+      </Breadcrumbs>
+    </Box>
+  )
+
+  return (
+    <FormProvider {...formMethods}>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <FormLayout
+          title={header}
+          leftContent={leftContent}
+          rightContent={sideContent}
+        />
+      </form>
+    </FormProvider>
+  )
+}
+
+export default CreateCollectionForm

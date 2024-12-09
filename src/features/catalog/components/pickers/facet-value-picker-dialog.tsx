@@ -1,16 +1,17 @@
 import React, { useState } from 'react'
 import { Button, Dialog, DialogTitle, DialogContent } from '@mui/material'
 import FacetValuePicker from './facet-value-picker'
-import { GET_FACETS } from '@avc/graphql/queries'
-import { useQuery } from '@avc/lib/hooks/use-query'
-import { FindFacetsResponse } from '@avc/generated/graphql'
+import { Facet } from '@avc/generated/graphql'
 
-export const TestPicker = () => {
-  const { data } = useQuery<{ facets: FindFacetsResponse }>(GET_FACETS, {
-    fetchPolicy: 'cache-and-network',
-  })
-  const facets = data?.facets?.items || []
-  const [selectedFacetValues, setSelectedFacetValues] = useState<string[]>([])
+export const FacetValuePickerDialog = ({
+  facets,
+  selectedFacetValues,
+  onSelectionChange,
+}: {
+  facets: Facet[]
+  selectedFacetValues: string[]
+  onSelectionChange: (selected: string[]) => void
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const handleOpenModal = () => {
@@ -21,15 +22,17 @@ export const TestPicker = () => {
     setIsModalOpen(false)
   }
 
-  console.log(facets)
-
   return (
     <div>
-      <Button variant="contained" onClick={handleOpenModal}>
+      <Button
+        variant="outlined"
+        onClick={handleOpenModal}
+        fullWidth
+        sx={{ textTransform: 'initial' }}
+      >
         Nitelik Değerlerini Seç
       </Button>
 
-      {/* Display selected facet values */}
       {selectedFacetValues.length > 0 && (
         <div style={{ marginTop: '16px' }}>
           <strong>Seçili Nitelik Değerleri:</strong>
@@ -57,7 +60,7 @@ export const TestPicker = () => {
           <FacetValuePicker
             facets={facets || []}
             selectedValues={selectedFacetValues}
-            onSelectionChange={setSelectedFacetValues}
+            onSelectionChange={onSelectionChange}
           />
         </DialogContent>
       </Dialog>
@@ -65,4 +68,4 @@ export const TestPicker = () => {
   )
 }
 
-export default TestPicker
+export default FacetValuePickerDialog

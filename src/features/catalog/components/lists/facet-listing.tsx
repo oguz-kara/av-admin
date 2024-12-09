@@ -18,11 +18,15 @@ import {
   Dialog,
   Snackbar,
   IconButton,
+  CardActions,
+  CardContent,
+  Card,
 } from '@mui/material'
 import React, { useState } from 'react'
 import { useMutation } from '@avc/lib/hooks/use-mutation'
 import { DELETE_FACET_LIST } from '@avc/graphql/mutations'
 import CloseIcon from '@mui/icons-material/Close'
+import FormLayout from '@avc/components/layout/form-layout'
 
 const columns: GridColDef[] = [
   {
@@ -98,41 +102,17 @@ export default function FacetListing({
     values: facet.values,
   }))
 
-  const action = (
-    <React.Fragment>
-      <IconButton
-        size="small"
-        aria-label="close"
-        color="inherit"
-        onClick={() => setSuccessToastMessage(null)}
-      >
-        <CloseIcon fontSize="small" />
-      </IconButton>
-    </React.Fragment>
+  const header = (
+    <Box px={4}>
+      <Typography variant="h6">Nitelikler</Typography>
+      <Typography variant="subtitle1" color="textDisabled">
+        Niteliklerinizi listeleyin
+      </Typography>
+    </Box>
   )
 
-  return (
+  const leftSide = (
     <Box>
-      <Box sx={{ p: 4 }}>
-        <Stack direction="row" justifyContent="space-between">
-          <Box>
-            <Typography variant="h6">Nitelikler</Typography>
-            <Typography variant="subtitle1" color="textDisabled">
-              Niteliklerinizi listeleyin
-            </Typography>
-          </Box>
-          <Box>
-            <Link href="/katalog/nitelikler/yeni">
-              <Button
-                variant="contained"
-                startIcon={<AddCircleOutlineTwoToneIcon />}
-              >
-                Nitelik Ekle
-              </Button>
-            </Link>
-          </Box>
-        </Stack>
-      </Box>
       <Box sx={{ px: 4, pb: 4 }}>
         <Stack direction="row" sx={{ mb: 2 }} gap={2}>
           <Box>
@@ -212,14 +192,49 @@ export default function FacetListing({
           </Button>
         </DialogActions>
       </Dialog>
-      <Snackbar
-        open={!!successToastMessage}
-        autoHideDuration={6000}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        onClose={() => setSuccessToastMessage(null)}
-        message={successToastMessage}
-        action={action}
-      />
     </Box>
+  )
+
+  const rightSide = (
+    <Card sx={{ p: 0 }}>
+      <CardContent sx={{ p: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            p: 2,
+          }}
+        >
+          <Typography variant="subtitle1">Aksiyonlar</Typography>
+        </Box>
+      </CardContent>
+
+      <CardActions
+        sx={{
+          p: 2,
+        }}
+      >
+        <Box>
+          <Link href="/katalog/nitelikler/yeni">
+            <Button
+              variant="contained"
+              startIcon={<AddCircleOutlineTwoToneIcon />}
+            >
+              Nitelik Ekle
+            </Button>
+          </Link>
+        </Box>
+      </CardActions>
+    </Card>
+  )
+
+  return (
+    <FormLayout
+      title={header}
+      leftContent={leftSide}
+      rightContent={rightSide}
+    />
   )
 }

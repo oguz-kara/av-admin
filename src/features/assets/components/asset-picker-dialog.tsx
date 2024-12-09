@@ -12,13 +12,17 @@ import {
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import AssetModal from './asset-modal'
 import Image from 'next/image'
+import { Asset } from '../types'
+import FileIcon from '@mui/icons-material/FilePresent'
 
-export default function AssetPickerButton() {
-  const [selectedAssets, setSelectedAssets] = useState<any[]>([])
+export default function AssetPickerDialog({
+  selectedAssets,
+  onAssetsChange,
+}: {
+  selectedAssets: Asset[]
+  onAssetsChange: (assets: Asset[]) => void
+}) {
   const [open, setOpen] = useState(false)
-
-  const handleOpen = () => setOpen(true)
-  const handleClose = () => setOpen(false)
 
   return (
     <>
@@ -31,8 +35,9 @@ export default function AssetPickerButton() {
           '&:hover': {
             borderColor: 'primary.main',
           },
+          marginBottom: 2,
         }}
-        onClick={handleOpen}
+        onClick={() => setOpen(true)}
       >
         <CardActionArea sx={{ width: '100%', height: '100%' }}>
           <Box
@@ -54,12 +59,16 @@ export default function AssetPickerButton() {
       {selectedAssets.length > 0 ? (
         <Box>
           <ImageList cols={5} rowHeight={164}>
-            {selectedAssets.map((asset: any) => (
-              <ImageListItem key={asset.id}>
+            {selectedAssets.map((asset: Asset, index: number) => (
+              <ImageListItem key={asset.id ?? index}>
                 <Image
                   width={164}
                   height={164}
-                  src={asset.preview}
+                  src={
+                    asset.type === 'IMAGE'
+                      ? asset.preview ?? '/images/document-placeholder.png'
+                      : '/images/document-placeholder.png'
+                  }
                   alt={asset.originalName}
                   loading="lazy"
                   style={{
@@ -68,9 +77,10 @@ export default function AssetPickerButton() {
                     height: '164px',
                   }}
                 />
+                )
                 <ImageListItemBar
                   title={asset.originalName}
-                  subtitle={asset.size}
+                  subtitle={asset.fileSize}
                 />
               </ImageListItem>
             ))}
@@ -80,9 +90,10 @@ export default function AssetPickerButton() {
 
       <AssetModal
         open={open}
-        onClose={handleClose}
-        assets={selectedAssets}
-        onChange={setSelectedAssets}
+        onClose={() => setOpen(false)}
+        onChange={onAssetsChange}
+        selectedAssets={selectedAssets}
+        setSelectedAssets={onAssetsChange}
       />
     </>
   )

@@ -17,6 +17,7 @@ const channelMiddleware = new ApolloLink((operation, forward) => {
   return new Observable((observer) => {
     cookies().then((cookieStore) => {
       const channelToken = cookieStore.get('channel_token')
+      console.log({ channelToken })
       operation.setContext({
         headers: {
           'x-channel-token': channelToken?.value || '',

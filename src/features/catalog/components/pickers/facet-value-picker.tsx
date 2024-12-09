@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import {
   Box,
   Typography,
@@ -7,8 +7,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Chip,
-  Stack,
   Checkbox,
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -64,12 +62,15 @@ const FacetValuePicker: React.FC<FacetValuePickerProps> = ({
                   selectedValues.includes(val.id)
                 ) || []
               }
-              renderOption={(props, option, { selected }) => (
-                <li {...props}>
-                  <Checkbox style={{ marginRight: 8 }} checked={selected} />
-                  {option.name}
-                </li>
-              )}
+              renderOption={(props, option, { selected }) => {
+                const { key, ...otherProps } = props
+                return (
+                  <li key={key} {...otherProps}>
+                    <Checkbox style={{ marginRight: 8 }} checked={selected} />
+                    {option.name}
+                  </li>
+                )
+              }}
               renderInput={(params) => (
                 <TextField
                   {...params}
@@ -84,34 +85,7 @@ const FacetValuePicker: React.FC<FacetValuePickerProps> = ({
     </>
   )
 
-  return (
-    <Box sx={{ width: '100%' }}>
-      {renderFacetContent()}
-      {selectedValues.length > 0 && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle1">Seçili Nitelikler:</Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            {selectedValues.map((valueId) => {
-              const facetValue = facets
-                .flatMap((facet) => facet.values)
-                .find((val) => val?.id === valueId)
-              return (
-                facetValue && (
-                  <Chip
-                    key={facetValue.id}
-                    label={facetValue.name}
-                    onDelete={() => {
-                      handleFacetValueChange(facetValue.id)
-                    }}
-                  />
-                )
-              )
-            })}
-          </Stack>
-        </Box>
-      )}
-    </Box>
-  )
+  return <Box sx={{ width: '100%' }}>{renderFacetContent()}</Box>
 }
 
 export default FacetValuePicker
